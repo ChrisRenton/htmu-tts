@@ -934,20 +934,50 @@ init();
 
 // Service Worker Registration
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(reg => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
         console.log('[SW] Registered:', reg.scope);
+        console.log('[SW] State:', reg.active ? 'active' : reg.installing ? 'installing' : reg.waiting ? 'waiting' : 'unknown');
+        
+        // Handle updates
+        reg.onupdatefound = () => {
+            const newWorker = reg.installing;
+            console.log('[SW] Update found, installing...');
+            newWorker.onstatechange = () => {
+                console.log('[SW] New worker state:', newWorker.state);
+            };
+        };
     }).catch(err => {
-        console.log('[SW] Registration failed:', err);
+        console.error('[SW] Registration failed:', err);
     });
+    
+    // Log controller status
+    navigator.serviceWorker.ready.then(reg => {
+        console.log('[SW] Ready and controlling page');
+    });
+} else {
+    console.warn('[SW] Service workers not supported');
 }
 
 // PWA Install Prompt
 let deferredPrompt;
+console.log('[PWA] Setting up beforeinstallprompt listener...');
 window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('[PWA] beforeinstallprompt fired!');
     e.preventDefault();
     deferredPrompt = e;
     showInstallButton();
 });
+
+// Check if app is already installed
+window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App was installed!');
+    deferredPrompt = null;
+});
+
+// Log if running as installed PWA
+if (window.matchMedia('(display-mode: standalone)').matches) {
+    console.log('[PWA] Running as installed PWA');
+}
 
 function showInstallButton() {
     const installBtn = document.createElement('button');
