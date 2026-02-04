@@ -1,5 +1,6 @@
 // HTMU TTS Service Worker
-const CACHE_NAME = 'htmu-tts-v1';
+const CACHE_NAME = 'htmu-tts-v2';
+const VOICE_CACHE = 'htmu-tts-voices';
 const ASSETS = [
   './',
   './index.html',
@@ -20,12 +21,12 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate - clean old caches
+// Activate - clean old caches (keep voice cache)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
-        keys.filter(key => key !== CACHE_NAME)
+        keys.filter(key => key !== CACHE_NAME && key !== VOICE_CACHE)
             .map(key => caches.delete(key))
       );
     })
@@ -33,13 +34,43 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch - cache first, network fallback
+// Handle messages from main thread (to cache voice files)
+self.addEventListener('message', event => {
+  if (event.data.type === 'CACHE_VOICE_FILE') {
+    const { url, data, mimeType } = event.data;
+    caches.open(VOICE_CACHE).then(cache => {
+      const response = new Response(data, {
+        headers: { 'Content-Type': mimeType }
+      });
+      cache.put(url, response);
+      console.log('[SW] Cached voice file:', url);
+    });
+  }
+});
+
+// Fetch - check voice cache first, then app cache
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
   
-  // Skip cross-origin requests except CDN
   const url = new URL(event.request.url);
+  
+  // Handle voice file requests (served from cache)
+  if (url.pathname.includes('/voice/')) {
+    event.respondWith(
+      caches.open(VOICE_CACHE).then(cache => {
+        return cache.match(event.request).then(response => {
+          if (response) {
+            console.log('[SW] Serving from voice cache:', url.pathname);
+            return response;
+          }
+          return new Response('Voice file not cached', { status: 404 });
+        });
+      })
+    );
+    return;
+  }
+  
+  // Skip cross-origin except CDN
   if (url.origin !== location.origin && !url.href.includes('cdnjs.cloudflare.com')) {
     return;
   }
@@ -47,24 +78,12 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) {
-        // Return cached, but also fetch new version in background
-        fetch(event.request).then(response => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, response);
-            });
-          }
-        }).catch(() => {});
         return cached;
       }
-      
-      // Not cached - fetch and cache
       return fetch(event.request).then(response => {
         if (response.ok) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       });

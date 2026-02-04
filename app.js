@@ -206,68 +206,122 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
             }
         }
         
-        loadingText.textContent = 'Starting voice engine...';
+timings.filesExtracted = performance.now();
+        console.log(`[Timing] Files extracted: ${timings.filesExtracted - timings.zipLoaded}ms`);
         
-        // Create blob URLs
-        const wasmBlob = new Blob([files['sherpa-onnx-wasm-main-tts.wasm']], {type: 'application/wasm'});
-        const dataBlob = new Blob([files['sherpa-onnx-wasm-main-tts.data']], {type: 'application/octet-stream'});
-        const wasmUrl = URL.createObjectURL(wasmBlob);
-        const dataUrl = URL.createObjectURL(dataBlob);
-        
-        // Patch the glue code to use blob URLs
-        let glueCode = files['sherpa-onnx-wasm-main-tts.js'];
-        
-        // Create Module object with locateFile
-        window.Module = {
-            locateFile: function(path) {
-                if (path.endsWith('.wasm')) return wasmUrl;
-                if (path.endsWith('.data')) return dataUrl;
-                return path;
-            },
-            onRuntimeInitialized: function() {
-                console.log('WASM initialized');
-                loadingText.textContent = 'Almost ready...';
-                
-                try {
-                    APP.tts = createOfflineTts(Module);
-                    timings.ttsCreated = performance.now();
-                    console.log(`[Timing] TTS created: ${timings.ttsCreated - timings.wasmInitialized}ms`);
-                    console.log(`[Timing] TOTAL: ${timings.ttsCreated - timings.start}ms`);
-                    
-                    // Enable UI
-                    loadingOverlay.classList.add('hidden');
-                    voiceLoadScreen.classList.add('hidden');
-                    textInput.disabled = false;
-                    speakBtn.disabled = false;
-                    statusText.textContent = 'Ready';
-                    
-                    // Store voice name
-                    APP.voiceName = voiceName;
-                    
-                    // Load phrases
-                    loadPhrases();
-                } catch (error) {
-                    console.error('TTS creation failed:', error);
-                    loadingText.textContent = 'Failed to load voice. Please try again.';
-                }
-            }
-        };
-        
-        // Execute the TTS API script
-        const ttsScript = document.createElement('script');
-        ttsScript.textContent = files['sherpa-onnx-tts.js'];
-        document.head.appendChild(ttsScript);
-        
-        // Execute the glue code
-        const glueScript = document.createElement('script');
-        glueScript.textContent = glueCode;
-        document.head.appendChild(glueScript);
+        // Initialize TTS with extracted files
+        await initTTSFromFiles(files, voiceName, timings);
         
     } catch (error) {
         console.error('Failed to load voice:', error);
         loadingOverlay.classList.add('hidden');
         alert('Failed to load voice: ' + error.message);
     }
+}
+
+/**
+ * Cache voice files via Service Worker
+ */
+async function cacheVoiceFiles(files, voiceName) {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+        console.log('[Cache] No service worker controller');
+        return null;
+    }
+    
+    const baseUrl = `${location.origin}${location.pathname.replace(/\/[^/]*$/, '/')}/voice/${voiceName}/`;
+    
+    for (const [name, data] of Object.entries(files)) {
+        const url = baseUrl + name;
+        const mimeType = name.endsWith('.wasm') ? 'application/wasm' : 
+                        name.endsWith('.js') ? 'application/javascript' : 
+                        'application/octet-stream';
+        
+        navigator.serviceWorker.controller.postMessage({
+            type: 'CACHE_VOICE_FILE',
+            url: url,
+            data: data,
+            mimeType: mimeType
+        });
+    }
+    
+    await new Promise(r => setTimeout(r, 200));
+    console.log('[Cache] Voice files cached at:', baseUrl);
+    return baseUrl;
+}
+
+/**
+ * Initialize TTS from files
+ */
+async function initTTSFromFiles(files, voiceName, timings) {
+    loadingText.textContent = 'Caching for fast access...';
+    
+    // Try to cache via Service Worker
+    const baseUrl = await cacheVoiceFiles(files, voiceName);
+    
+    timings.filesCached = performance.now();
+    console.log(`[Timing] Files cached: ${(timings.filesCached - (timings.filesExtracted || timings.filesLoaded || timings.start)).toFixed(0)}ms`);
+    
+    loadingText.textContent = 'Starting voice engine...';
+    
+    let wasmUrl, dataUrl;
+    
+    if (baseUrl) {
+        wasmUrl = baseUrl + 'sherpa-onnx-wasm-main-tts.wasm';
+        dataUrl = baseUrl + 'sherpa-onnx-wasm-main-tts.data';
+        console.log('[TTS] Using Service Worker cached URLs');
+    } else {
+        // Fallback to blob URLs
+        const wasmBlob = new Blob([files['sherpa-onnx-wasm-main-tts.wasm']], {type: 'application/wasm'});
+        const dataBlob = new Blob([files['sherpa-onnx-wasm-main-tts.data']], {type: 'application/octet-stream'});
+        wasmUrl = URL.createObjectURL(wasmBlob);
+        dataUrl = URL.createObjectURL(dataBlob);
+        console.log('[TTS] Using blob URLs (slower)');
+    }
+    
+    timings.urlsReady = performance.now();
+    console.log(`[Timing] URLs ready: ${(timings.urlsReady - timings.filesCached).toFixed(0)}ms`);
+    
+    window.Module = {
+        locateFile: function(path) {
+            console.log('[Module.locateFile]', path);
+            if (path.endsWith('.wasm')) return wasmUrl;
+            if (path.endsWith('.data')) return dataUrl;
+            return path;
+        },
+        onRuntimeInitialized: function() {
+            timings.wasmInit = performance.now();
+            console.log(`[Timing] WASM initialized: ${(timings.wasmInit - timings.urlsReady).toFixed(0)}ms`);
+            loadingText.textContent = 'Almost ready...';
+            
+            try {
+                const createStart = performance.now();
+                APP.tts = createOfflineTts(Module);
+                timings.ttsCreated = performance.now();
+                console.log(`[Timing] TTS created: ${(timings.ttsCreated - timings.wasmInit).toFixed(0)}ms`);
+                console.log(`[Timing] TOTAL: ${(timings.ttsCreated - timings.start).toFixed(0)}ms`);
+                
+                loadingOverlay.classList.add('hidden');
+                voiceLoadScreen.classList.add('hidden');
+                textInput.disabled = false;
+                speakBtn.disabled = false;
+                statusText.textContent = 'Ready';
+                APP.voiceName = voiceName;
+                loadPhrases();
+            } catch (error) {
+                console.error('TTS creation failed:', error);
+                loadingText.textContent = 'Failed to load voice.';
+            }
+        }
+    };
+    
+    // Inject scripts
+    const ttsScript = document.createElement('script');
+    ttsScript.textContent = files['sherpa-onnx-tts.js'];
+    document.head.appendChild(ttsScript);
+    
+    const glueScript = document.createElement('script');
+    glueScript.textContent = files['sherpa-onnx-wasm-main-tts.js'];
+    document.head.appendChild(glueScript);
 }
 
 /**
@@ -567,8 +621,14 @@ async function speak(text) {
     speakBtn.disabled = true;
     statusText.textContent = 'Generating...';
     
+    const genStart = performance.now();
+    
     try {
         const audio = APP.tts.generate({ text, sid: 0, speed: 1.0 });
+        const genEnd = performance.now();
+        const duration = audio.samples.length / audio.sampleRate;
+        console.log(`[TTS] Generated ${duration.toFixed(2)}s audio in ${(genEnd - genStart).toFixed(0)}ms (${text.substring(0, 30)}...)`);
+        
         playAudio(audio.samples, audio.sampleRate);
         addToHistory(text);
         statusText.textContent = 'Playing...';
