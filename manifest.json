@@ -2,7 +2,7 @@
   "name": "HTMU TTS",
   "short_name": "HTMU TTS",
   "description": "Text-to-Speech App",
-  "start_url": "/htmu-tts/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f5f5",
   "theme_color": "#007AFF",

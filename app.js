@@ -163,8 +163,12 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
         let zipData;
         if (isFile) {
             zipData = await fileOrBuffer.arrayBuffer();
-            // Save to IndexedDB for next time
-            await saveVoiceToStorage(voiceName, zipData);
+            // Save to IndexedDB for next time (if DB available)
+            if (APP.db) {
+                await saveVoiceToStorage(voiceName, zipData);
+            } else {
+                console.log('[Storage] DB not initialized, skipping save');
+            }
             console.log('Voice saved to storage:', voiceName);
         } else {
             zipData = fileOrBuffer;
@@ -825,32 +829,40 @@ APP.history = JSON.parse(localStorage.getItem('libby_history') || '[]');
 async function init() {
     console.log('HTMU TTS initializing...');
     
+    // Initialize DB (don't fail if it errors)
     try {
         await initDB();
-        
-        // Check for saved voices
-        const savedVoices = await getSavedVoices();
-        console.log('Saved voices:', savedVoices);
-        
-        if (savedVoices.length > 0) {
-            // Load the first saved voice
-            const voiceName = savedVoices[0];
-            const voiceData = await loadVoiceFromStorage(voiceName);
-            
-            if (voiceData && voiceData.data) {
-                console.log('Loading saved voice:', voiceName);
-                await loadVoiceFile(voiceData.data, voiceName);
-                return;
-            }
-        }
-        
-        // No saved voice, show upload screen
-        console.log('No saved voice, showing upload screen');
-        showSavedVoicesList(savedVoices);
-        
+        console.log('IndexedDB initialized');
     } catch (error) {
-        console.error('Init error:', error);
+        console.warn('IndexedDB init failed, continuing without storage:', error);
+        APP.db = null;
     }
+    
+    // Check for saved voices
+    let savedVoices = [];
+    if (APP.db) {
+        try {
+            savedVoices = await getSavedVoices();
+            console.log('Saved voices:', savedVoices);
+            
+            if (savedVoices.length > 0) {
+                const voiceName = savedVoices[0];
+                const voiceData = await loadVoiceFromStorage(voiceName);
+                
+                if (voiceData && voiceData.data) {
+                    console.log('Loading saved voice:', voiceName);
+                    await loadVoiceFile(voiceData.data, voiceName);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.warn('Error loading saved voices:', error);
+        }
+    }
+    
+    // No saved voice, show upload screen
+    console.log('No saved voice, showing upload screen');
+    showSavedVoicesList(savedVoices);
 }
 
 /**
