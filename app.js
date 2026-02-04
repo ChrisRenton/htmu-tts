@@ -18,9 +18,10 @@ const APP = {
 };
 
 const DB_NAME = 'HTMU_TTS';
-const DB_VERSION = 2;  // Bumped to add EXTRACTED_STORE
+const DB_VERSION = 3;  // Bumped to add PREFS_STORE
 const VOICE_STORE = 'voices';
 const EXTRACTED_STORE = 'extracted';  // Store for extracted WASM files
+const PREFS_STORE = 'prefs';  // Store for user preferences (phrase customizations)
 
 /**
  * Initialize IndexedDB
@@ -42,6 +43,9 @@ async function initDB() {
             }
             if (!db.objectStoreNames.contains(EXTRACTED_STORE)) {
                 db.createObjectStore(EXTRACTED_STORE, { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains(PREFS_STORE)) {
+                db.createObjectStore(PREFS_STORE, { keyPath: 'key' });
             }
         };
     });
@@ -144,6 +148,52 @@ async function loadExtractedFiles(voiceName) {
             if (request.result && request.result.files) {
                 console.log('[Storage] Loaded extracted files for:', voiceName);
                 resolve(request.result.files);
+            } else {
+                resolve(null);
+            }
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Save customized phrases to IndexedDB
+ */
+async function savePhrasesToStorage() {
+    if (!APP.db) return;
+    return new Promise((resolve, reject) => {
+        const tx = APP.db.transaction(PREFS_STORE, 'readwrite');
+        const store = tx.objectStore(PREFS_STORE);
+        
+        const data = { 
+            key: 'phrases', 
+            data: APP.phrases,
+            timestamp: Date.now() 
+        };
+        const request = store.put(data);
+        
+        request.onsuccess = () => {
+            console.log('[Prefs] Phrases saved');
+            resolve();
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Load customized phrases from IndexedDB
+ */
+async function loadPhrasesFromStorage() {
+    if (!APP.db) return null;
+    return new Promise((resolve, reject) => {
+        const tx = APP.db.transaction(PREFS_STORE, 'readonly');
+        const store = tx.objectStore(PREFS_STORE);
+        const request = store.get('phrases');
+        
+        request.onsuccess = () => {
+            if (request.result && request.result.data) {
+                console.log('[Prefs] Loaded saved phrases');
+                resolve(request.result.data);
             } else {
                 resolve(null);
             }
@@ -547,6 +597,11 @@ function renderPhrases() {
         const btn = document.createElement('button');
         btn.className = 'phrase-btn' + (item.type === 'group' ? ' group' : '');
         
+        // Apply custom color if set
+        if (item.color && item.color !== '#ffffff') {
+            btn.style.backgroundColor = item.color;
+        }
+        
         if (item.type === 'group') {
             btn.innerHTML = `<span class="text">${item.name}</span>`;
             btn.onclick = () => { APP.currentPath.push(item.name); renderPhrases(); };
@@ -554,7 +609,7 @@ function renderPhrases() {
             btn.innerHTML = `<span class="text">${item.text}</span>`;
             
             // Long press detection for phrases
-            setupLongPress(btn, item.text, idx);
+            setupLongPress(btn, item.text, idx, item.color);
         }
         
         phraseGrid.appendChild(btn);
@@ -612,13 +667,33 @@ function setupLongPress(btn, text, idx) {
     btn.addEventListener('touchcancel', cancelPress);
 }
 
+// Color picker state
+let selectedColor = '#ffffff';
+const colorPicker = document.getElementById('colorPicker');
+
+// Setup color picker buttons
+colorPicker.querySelectorAll('.color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        colorPicker.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedColor = btn.dataset.color;
+    });
+});
+
 /**
  * Open edit modal for a phrase
  */
-function openEditModal(text, idx) {
+function openEditModal(text, idx, color) {
     editingPhraseIndex = idx;
     editingGroupPath = [...APP.currentPath];
     editPhraseText.value = text;
+    
+    // Set selected color
+    selectedColor = color || '#ffffff';
+    colorPicker.querySelectorAll('.color-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.color === selectedColor);
+    });
+    
     editModal.classList.remove('hidden');
     editPhraseText.focus();
 }
@@ -630,6 +705,7 @@ function closeEditModal() {
     editModal.classList.add('hidden');
     editingPhraseIndex = null;
     editingGroupPath = [];
+    selectedColor = '#ffffff';
 }
 
 /**
@@ -648,21 +724,23 @@ function saveEditedPhrase() {
         items = APP.phrases.groups[groupName].phrases;
     }
     
-    // Update the phrase
+    // Update the phrase with text and color
     if (items[editingPhraseIndex]) {
         items[editingPhraseIndex].text = newText;
+        items[editingPhraseIndex].color = selectedColor;
     }
     
     closeEditModal();
     renderPhrases();
     
-    // TODO: Save to storage when phrase customization is implemented
+    // Save to persistent storage
+    savePhrasesToStorage();
 }
 
 /**
  * Delete a phrase
  */
-function deletePhrase() {
+async function deletePhrase() {
     // Get the items array to modify
     let items;
     if (editingGroupPath.length === 0) {
@@ -678,7 +756,8 @@ function deletePhrase() {
     closeEditModal();
     renderPhrases();
     
-    // TODO: Save to storage when phrase customization is implemented
+    // Save to persistent storage
+    await savePhrasesToStorage();
 }
 
 /**

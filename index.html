@@ -395,6 +395,31 @@
             border-color: var(--accent);
         }
 
+        .color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .color-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.1s;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .color-btn.selected {
+            border-color: var(--accent);
+            border-width: 3px;
+        }
+
         .modal-actions {
             display: flex;
             gap: 8px;
@@ -509,6 +534,18 @@
             <div class="modal-body">
                 <label class="modal-label">Label:</label>
                 <input type="text" class="modal-input" id="editPhraseText" placeholder="Enter phrase text">
+                
+                <label class="modal-label">Color:</label>
+                <div class="color-picker" id="colorPicker">
+                    <button class="color-btn" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+                    <button class="color-btn" data-color="#e8f5e9" style="background:#e8f5e9" title="Green"></button>
+                    <button class="color-btn" data-color="#e3f2fd" style="background:#e3f2fd" title="Blue"></button>
+                    <button class="color-btn" data-color="#fff3e0" style="background:#fff3e0" title="Orange"></button>
+                    <button class="color-btn" data-color="#fce4ec" style="background:#fce4ec" title="Pink"></button>
+                    <button class="color-btn" data-color="#f3e5f5" style="background:#f3e5f5" title="Purple"></button>
+                    <button class="color-btn" data-color="#fffde7" style="background:#fffde7" title="Yellow"></button>
+                    <button class="color-btn" data-color="#e0e0e0" style="background:#e0e0e0" title="Grey"></button>
+                </div>
                 
                 <div class="modal-actions">
                     <button class="modal-btn cancel" id="editCancel">Cancel</button>
