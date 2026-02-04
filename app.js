@@ -14,6 +14,7 @@ const APP = {
     allPhrases: [],
     voiceName: null,
     db: null,
+    dirHandle: null,  // File System Access directory handle
 };
 
 const DB_NAME = 'HTMU_TTS';
@@ -145,6 +146,19 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
     const isFile = fileOrBuffer instanceof File;
     
     try {
+        // Check if we can load from file system (much faster)
+        if (APP.dirHandle && await voiceExistsInFileSystem(voiceName)) {
+            console.log('Loading from file system...');
+            loadingText.textContent = 'Loading from disk...';
+            const fsFiles = await loadFromFileSystem(voiceName);
+            if (fsFiles) {
+                timings.filesLoaded = performance.now();
+                console.log(`[Timing] Files loaded from disk: ${timings.filesLoaded - timings.start}ms`);
+                await initTTSFromFiles(fsFiles, voiceName, timings);
+                return;
+            }
+        }
+        
         // If it's a File, read it and save to storage
         let zipData;
         if (isFile) {
@@ -809,6 +823,21 @@ function showSavedVoicesList(savedVoices) {
             };
         });
     }
+}
+
+// Show File System button if available
+if (hasFileSystemAccess()) {
+    enableFsBtn.classList.remove('hidden');
+    fsHint.classList.remove('hidden');
+    
+    enableFsBtn.onclick = async () => {
+        const handle = await requestVoiceDirectory();
+        if (handle) {
+            enableFsBtn.textContent = '✓ Fast Storage Enabled';
+            enableFsBtn.classList.add('enabled');
+            enableFsBtn.disabled = true;
+        }
+    };
 }
 
 // Start
