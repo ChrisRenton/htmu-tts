@@ -135,6 +135,35 @@ let editingPhraseIndex = null;
 let editingGroupPath = [];
 
 /**
+ * Check if File System Access API is available
+ */
+function hasFileSystemAccess() {
+    return 'showDirectoryPicker' in window;
+}
+
+/**
+ * Request voice directory (stub - full implementation requires more work)
+ */
+async function requestVoiceDirectory() {
+    console.log('File System Access not fully implemented yet');
+    return null;
+}
+
+/**
+ * Check if voice exists in file system (stub)
+ */
+async function voiceExistsInFileSystem(voiceName) {
+    return false;
+}
+
+/**
+ * Load from file system (stub)
+ */
+async function loadFromFileSystem(voiceName) {
+    return null;
+}
+
+/**
  * Load voice from .htmuvoice file or ArrayBuffer
  */
 async function loadVoiceFile(fileOrBuffer, fileName) {
@@ -897,20 +926,8 @@ function showSavedVoicesList(savedVoices) {
     }
 }
 
-// Show File System button if available
-if (hasFileSystemAccess()) {
-    enableFsBtn.classList.remove('hidden');
-    fsHint.classList.remove('hidden');
-    
-    enableFsBtn.onclick = async () => {
-        const handle = await requestVoiceDirectory();
-        if (handle) {
-            enableFsBtn.textContent = '✓ Fast Storage Enabled';
-            enableFsBtn.classList.add('enabled');
-            enableFsBtn.disabled = true;
-        }
-    };
-}
+// File System Access (disabled for now - needs more work)
+// TODO: Re-enable once FS Access is fully implemented
 
 // Start
 init();
