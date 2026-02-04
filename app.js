@@ -139,6 +139,7 @@ let editingGroupPath = [];
 async function loadVoiceFile(fileOrBuffer, fileName) {
     loadingOverlay.classList.remove('hidden');
     loadingText.textContent = 'Preparing voice...';
+    const timings = { start: performance.now() };
     
     const voiceName = fileName || (fileOrBuffer.name ? fileOrBuffer.name.replace('.htmuvoice', '') : 'voice');
     const isFile = fileOrBuffer instanceof File;
@@ -155,8 +156,13 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
             zipData = fileOrBuffer;
         }
         
+        timings.savedToStorage = performance.now();
+        console.log(`[Timing] Save to storage: ${timings.savedToStorage - timings.start}ms`);
+        
         loadingText.textContent = 'Opening voice package...';
         const zip = await JSZip.loadAsync(zipData);
+        timings.zipLoaded = performance.now();
+        console.log(`[Timing] ZIP loaded: ${timings.zipLoaded - timings.savedToStorage}ms`);
         
         // Extract files
         const files = {};
@@ -210,7 +216,9 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
                 
                 try {
                     APP.tts = createOfflineTts(Module);
-                    console.log('TTS ready');
+                    timings.ttsCreated = performance.now();
+                    console.log(`[Timing] TTS created: ${timings.ttsCreated - timings.wasmInitialized}ms`);
+                    console.log(`[Timing] TOTAL: ${timings.ttsCreated - timings.start}ms`);
                     
                     // Enable UI
                     loadingOverlay.classList.add('hidden');
