@@ -1,0 +1,96 @@
+{
+  "phrases": [
+    { "type": "group", "name": "Common", "icon": null },
+    { "type": "group", "name": "Food/Drink", "icon": null },
+    { "type": "group", "name": "Phrases", "icon": null },
+    { "type": "phrase", "text": "At home" },
+    { "type": "phrase", "text": "At work" },
+    { "type": "phrase", "text": "My name is..." },
+    { "type": "phrase", "text": "My phone number is..." },
+    { "type": "phrase", "text": "My email is..." },
+    { "type": "phrase", "text": "My address is..." },
+    { "type": "phrase", "text": "I live in..." },
+    { "type": "phrase", "text": "Hello, how are you?" },
+    { "type": "phrase", "text": "Nice to see you." },
+    { "type": "phrase", "text": "What is your name?" },
+    { "type": "phrase", "text": "I am fine, thank you." },
+    { "type": "phrase", "text": "I'm using this device to speak." },
+    { "type": "phrase", "text": "Good morning" },
+    { "type": "phrase", "text": "Good afternoon" },
+    { "type": "phrase", "text": "Good evening" },
+    { "type": "phrase", "text": "Good night" },
+    { "type": "phrase", "text": "Goodbye" },
+    { "type": "phrase", "text": "Have a nice day." },
+    { "type": "phrase", "text": "I have to go." },
+    { "type": "phrase", "text": "Talk to you soon." }
+  ],
+  "groups": {
+    "Common": {
+      "phrases": [
+        { "type": "phrase", "text": "Yes" },
+        { "type": "phrase", "text": "No" },
+        { "type": "phrase", "text": "Please" },
+        { "type": "phrase", "text": "Thank you" },
+        { "type": "phrase", "text": "Sorry" },
+        { "type": "phrase", "text": "Help" },
+        { "type": "phrase", "text": "Wait" },
+        { "type": "phrase", "text": "Stop" }
+      ]
+    },
+    "Food/Drink": {
+      "phrases": [
+        { "type": "phrase", "text": "I am hungry" },
+        { "type": "phrase", "text": "I am thirsty" },
+        { "type": "group", "name": "Breakfast", "icon": null },
+        { "type": "group", "name": "Lunch", "icon": null },
+        { "type": "group", "name": "Dinner", "icon": null },
+        { "type": "phrase", "text": "A glass of water" },
+        { "type": "phrase", "text": "Orange juice" },
+        { "type": "phrase", "text": "A sandwich" },
+        { "type": "phrase", "text": "Coffee with milk" },
+        { "type": "phrase", "text": "A cup of tea" },
+        { "type": "phrase", "text": "Toasted bread" },
+        { "type": "phrase", "text": "A croissant" },
+        { "type": "phrase", "text": "With jam" },
+        { "type": "phrase", "text": "With cheese" },
+        { "type": "phrase", "text": "Pizza" },
+        { "type": "phrase", "text": "Soup" },
+        { "type": "phrase", "text": "An apple" }
+      ]
+    },
+    "Phrases": {
+      "phrases": [
+        { "type": "phrase", "text": "I would like..." },
+        { "type": "phrase", "text": "Can you help me?" },
+        { "type": "phrase", "text": "I don't understand" },
+        { "type": "phrase", "text": "Please repeat that" },
+        { "type": "phrase", "text": "One moment please" },
+        { "type": "phrase", "text": "That's correct" },
+        { "type": "phrase", "text": "That's not right" }
+      ]
+    },
+    "Breakfast": {
+      "phrases": [
+        { "type": "phrase", "text": "Eggs" },
+        { "type": "phrase", "text": "Toast" },
+        { "type": "phrase", "text": "Cereal" },
+        { "type": "phrase", "text": "Pancakes" }
+      ]
+    },
+    "Lunch": {
+      "phrases": [
+        { "type": "phrase", "text": "Sandwich" },
+        { "type": "phrase", "text": "Salad" },
+        { "type": "phrase", "text": "Soup" }
+      ]
+    },
+    "Dinner": {
+      "phrases": [
+        { "type": "phrase", "text": "Pasta" },
+        { "type": "phrase", "text": "Chicken" },
+        { "type": "phrase", "text": "Fish" },
+        { "type": "phrase", "text": "Vegetables" }
+      ]
+    }
+  }
+}
