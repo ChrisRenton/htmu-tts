@@ -18,8 +18,9 @@ const APP = {
 };
 
 const DB_NAME = 'HTMU_TTS';
-const DB_VERSION = 1;
+const DB_VERSION = 2;  // Bumped to add EXTRACTED_STORE
 const VOICE_STORE = 'voices';
+const EXTRACTED_STORE = 'extracted';  // Store for extracted WASM files
 
 /**
  * Initialize IndexedDB
@@ -38,6 +39,9 @@ async function initDB() {
             const db = event.target.result;
             if (!db.objectStoreNames.contains(VOICE_STORE)) {
                 db.createObjectStore(VOICE_STORE, { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains(EXTRACTED_STORE)) {
+                db.createObjectStore(EXTRACTED_STORE, { keyPath: 'name' });
             }
         };
     });
@@ -102,6 +106,48 @@ async function deleteVoiceFromStorage(name) {
         const request = store.delete(name);
         
         request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Save extracted WASM files to IndexedDB (much faster than re-extracting from ZIP)
+ */
+async function saveExtractedFiles(voiceName, files) {
+    if (!APP.db) return;
+    return new Promise((resolve, reject) => {
+        const tx = APP.db.transaction(EXTRACTED_STORE, 'readwrite');
+        const store = tx.objectStore(EXTRACTED_STORE);
+        
+        const data = { name: voiceName, files: files, timestamp: Date.now() };
+        const request = store.put(data);
+        
+        request.onsuccess = () => {
+            console.log('[Storage] Extracted files saved for:', voiceName);
+            resolve();
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Load extracted WASM files from IndexedDB
+ */
+async function loadExtractedFiles(voiceName) {
+    if (!APP.db) return null;
+    return new Promise((resolve, reject) => {
+        const tx = APP.db.transaction(EXTRACTED_STORE, 'readonly');
+        const store = tx.objectStore(EXTRACTED_STORE);
+        const request = store.get(voiceName);
+        
+        request.onsuccess = () => {
+            if (request.result && request.result.files) {
+                console.log('[Storage] Loaded extracted files for:', voiceName);
+                resolve(request.result.files);
+            } else {
+                resolve(null);
+            }
+        };
         request.onerror = () => reject(request.error);
     });
 }
@@ -175,7 +221,20 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
     const isFile = fileOrBuffer instanceof File;
     
     try {
-        // Check if we can load from file system (much faster)
+        // 1. First check if we have already extracted files cached (fastest!)
+        if (APP.db) {
+            const cachedFiles = await loadExtractedFiles(voiceName);
+            if (cachedFiles) {
+                console.log('[Timing] Using cached extracted files!');
+                timings.cacheHit = performance.now();
+                console.log(`[Timing] Cache hit: ${timings.cacheHit - timings.start}ms`);
+                loadingText.textContent = 'Loading cached voice...';
+                await initTTSFromFiles(cachedFiles, voiceName, timings);
+                return;
+            }
+        }
+        
+        // 2. Check file system (if enabled)
         if (APP.dirHandle && await voiceExistsInFileSystem(voiceName)) {
             console.log('Loading from file system...');
             loadingText.textContent = 'Loading from disk...';
@@ -188,17 +247,15 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
             }
         }
         
-        // If it's a File, read it and save to storage
+        // 3. Need to extract from ZIP - either from provided file or storage
         let zipData;
         if (isFile) {
             zipData = await fileOrBuffer.arrayBuffer();
-            // Save to IndexedDB for next time (if DB available)
+            // Save ZIP to IndexedDB for backup
             if (APP.db) {
                 await saveVoiceToStorage(voiceName, zipData);
-            } else {
-                console.log('[Storage] DB not initialized, skipping save');
             }
-            console.log('Voice saved to storage:', voiceName);
+            console.log('Voice ZIP saved to storage:', voiceName);
         } else {
             zipData = fileOrBuffer;
         }
@@ -239,8 +296,16 @@ async function loadVoiceFile(fileOrBuffer, fileName) {
             }
         }
         
-timings.filesExtracted = performance.now();
+        timings.filesExtracted = performance.now();
         console.log(`[Timing] Files extracted: ${timings.filesExtracted - timings.zipLoaded}ms`);
+        
+        // Save extracted files to IndexedDB for FAST next load
+        if (APP.db) {
+            loadingText.textContent = 'Caching voice for fast loading...';
+            await saveExtractedFiles(voiceName, files);
+            timings.filesCached = performance.now();
+            console.log(`[Timing] Extracted files cached: ${timings.filesCached - timings.filesExtracted}ms`);
+        }
         
         // Initialize TTS with extracted files
         await initTTSFromFiles(files, voiceName, timings);
