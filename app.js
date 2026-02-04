@@ -813,3 +813,38 @@ function showSavedVoicesList(savedVoices) {
 
 // Start
 init();
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+        console.log('[SW] Registered:', reg.scope);
+    }).catch(err => {
+        console.log('[SW] Registration failed:', err);
+    });
+}
+
+// PWA Install Prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallButton();
+});
+
+function showInstallButton() {
+    const installBtn = document.createElement('button');
+    installBtn.className = 'change-voice-btn';
+    installBtn.textContent = 'Install App';
+    installBtn.style.marginRight = '8px';
+    installBtn.onclick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log('Install outcome:', outcome);
+            deferredPrompt = null;
+            installBtn.remove();
+        }
+    };
+    const statusBar = document.querySelector('.status-bar');
+    if (statusBar) statusBar.insertBefore(installBtn, statusBar.firstChild);
+}
