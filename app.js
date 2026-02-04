@@ -220,6 +220,7 @@ const btnHistory = document.getElementById('btnHistory');
 const changeVoiceBtn = document.getElementById('changeVoiceBtn');
 const editModal = document.getElementById('editModal');
 const editPhraseText = document.getElementById('editPhraseText');
+const editSpeakText = document.getElementById('editSpeakText');
 const editCancel = document.getElementById('editCancel');
 const editDelete = document.getElementById('editDelete');
 const editSave = document.getElementById('editSave');
@@ -609,7 +610,7 @@ function renderPhrases() {
             btn.innerHTML = `<span class="text">${item.text}</span>`;
             
             // Long press detection for phrases
-            setupLongPress(btn, item.text, idx, item.color);
+            setupLongPress(btn, item.text, idx, item.color, item.speakText);
         }
         
         phraseGrid.appendChild(btn);
@@ -683,10 +684,11 @@ colorPicker.querySelectorAll('.color-btn').forEach(btn => {
 /**
  * Open edit modal for a phrase
  */
-function openEditModal(text, idx, color) {
+function openEditModal(text, idx, color, speakText) {
     editingPhraseIndex = idx;
     editingGroupPath = [...APP.currentPath];
     editPhraseText.value = text;
+    editSpeakText.value = speakText || '';
     
     // Set selected color
     selectedColor = color || '#ffffff';
@@ -724,9 +726,10 @@ function saveEditedPhrase() {
         items = APP.phrases.groups[groupName].phrases;
     }
     
-    // Update the phrase with text and color
+    // Update the phrase with text, speak text, and color
     if (items[editingPhraseIndex]) {
         items[editingPhraseIndex].text = newText;
+        items[editingPhraseIndex].speakText = editSpeakText.value.trim() || null;
         items[editingPhraseIndex].color = selectedColor;
     }
     
