@@ -1,13 +1,13 @@
 // HTMU TTS Service Worker
-const CACHE_NAME = 'htmu-tts-v2';
+const CACHE_NAME = 'htmu-tts-v3';
 const VOICE_CACHE = 'htmu-tts-voices';
 const ASSETS = [
   './',
   './index.html',
   './app.js',
+  './jszip.min.js',
   './default.json',
-  './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  './manifest.json'
 ];
 
 // Install - cache app shell
